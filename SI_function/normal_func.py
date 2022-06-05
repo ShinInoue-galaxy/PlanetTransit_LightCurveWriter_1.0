@@ -1,11 +1,12 @@
 # normal function liblary
-import scipy.optimize
 import numpy as np
 
 #--------3D plane fitting from
 """
+referred the bellow code
 https://gist.github.com/RustingSword/e22a11e1d391f2ab1f2c
 """
+#画像を3D平面でfitするコード
 def fitPlane3D(XYZ):
     (rows, cols) = XYZ.shape
     G = np.ones((rows, 3))
@@ -21,7 +22,9 @@ def fitPlane3D(XYZ):
     c = normal[2]
     d = calc_d(a,b,c,XYZ)
     return a,b,c,d
+"""============================="""
 
+#ax + by + cz = dのdを返す
 def calc_d (a,b,c, XYZ):
     A = [a,b,c]
     d_sum = -np.dot(XYZ,A)

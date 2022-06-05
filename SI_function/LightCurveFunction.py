@@ -35,6 +35,19 @@ class Date(object):
 
 
 """====================-関数================="""
+#skyのofsetの処理
+def sky_offset(images, hdrs):
+    means = []
+    for i in range(len(hdrs)):
+        means.append(float(hdrs[i]['SKY_MEAN']))
+    mean_means = np.mean(np.array(means))
+
+    #offset補正したものを出力
+    for i in range(len(images)):
+        images[i] = images[i] + mean_means - means[i]
+    return images
+
+#reg fileの読み込み
 def open_reg_circle(reg_file):
     f = open(reg_file, 'r')
     circles = []
@@ -88,7 +101,6 @@ def calc_centroid(image ,displacement ,circle, r_pix = False):
     y_g = sum_y_value/sum_value
 
     return x_g, y_g
-
 
 def calc_read_displacements(images, displacement_file):
     if os.path.exists(displacement_file):
