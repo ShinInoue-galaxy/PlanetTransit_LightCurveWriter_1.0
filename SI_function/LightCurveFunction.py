@@ -6,6 +6,11 @@ import os
 import numpy as np
 import image_registration as im_regi # image_registrationパッケージを読み込む
 from SI_function import normal_func
+from photutils.aperture import CircularAperture
+from photutils.aperture.stats import ApertureStats
+from photutils.aperture import aperture_photometry
+from photutils.aperture import CircularAnnulus
+from astropy.stats import SigmaClip
 
 """=========================クラスで管理================"""
 class Circle(object):
@@ -100,8 +105,9 @@ def calc_centroid(image ,displacement ,circle, r_pix = False):
     x_g = sum_x_value/sum_value
     y_g = sum_y_value/sum_value
 
-    return x_g, y_g
+    return x_g, y_g, r
 
+#位置ずれを計算。あるいは既に計算済みで貼れば読み込む
 def calc_read_displacements(images, displacement_file):
     if os.path.exists(displacement_file):
         print('read existing file: '+displacement_file)
@@ -121,6 +127,7 @@ def calc_read_displacements(images, displacement_file):
 
     return displacements
 
+#regの何番目がターゲット天体かどうかを返す
 def get_target(circles):
     index = []
     for i in range(len(circles)):
@@ -134,6 +141,7 @@ def get_target(circles):
         return -99
     return index[0]
 
+#横軸にするヘッダーの日付を返す
 def get_hdr_date(hdrs):
     dates = []
     for i in range(len(hdrs)):
@@ -141,3 +149,85 @@ def get_hdr_date(hdrs):
         dates.append(Date(int(r.group(1)),int(r.group(2)),int(r.group(3)),int(r.group(4)),int(r.group(5)),float(r.group(6))))
 
     return dates
+
+
+"""===============================photometry=============================="""
+"""===================aperture photometry====================="""
+#aperture測光を行う
+def do_aperture_photometry(images, displacements, circles, target, r_pix, half_aperture, half_aperture_fwhm, local_bkg = False):
+    """================まず一枚目の画像からFWHMを求める==============="""
+    #重心の決定
+    positions, r_max = get_position_r(circles, images[0], displacements[0], r_pix) #positionと重心決定に使った半径の最大値を返す
+    #FWHM
+    FWHM = get_FWHMs(images[0], positions, half_aperture_fwhm, r_max, target, show_text = True)
+
+    #apertureの決定
+    if not half_aperture:
+        half_aperture = FWHM/2 * 3 #FWHMの三倍をphotometryの半径にする
+
+    #photometry
+    photometries = []
+    for i in tqdm.tqdm(range(len(images))):
+        positions, r_max = get_position_r(circles, images[i], displacements[i], r_pix)
+        photometries_temp = get_aperture_photometry(positions, images[i], half_aperture, target, local_bkg)
+        photometries.append(photometries_temp)
+    return photometries
+
+#FWHMを計算 いくつかの星のうちの最大値を返す(どれか一つに固定しないと意味がないため)
+def get_FWHMs(image, positions, half_aperture_fwhm, r_max, target, show_text = False):
+    #設定していなければ
+    if not half_aperture_fwhm:
+        half_aperture_fwhm = r_max
+
+    #アパーチャーを決めて測光
+    aperture = CircularAperture(positions, r=half_aperture_fwhm) #rは半径で指定 !!
+    FWHMs = ApertureStats(image, aperture).fwhm.value
+    FWHM_sorted = datas_sort(FWHMs, target)
+
+    if show_text:
+        print(return_message_in_order('FWHM', FWHM_sorted, 'pix'))
+
+    return np.max(FWHMs)
+
+#photometryに使うpositionを返す
+def get_position_r(circles, image, displacement, r_pix):
+    positions = []
+    rs = []
+    for i in range(len(circles)):
+        x_g, y_g, r = calc_centroid(image,displacement,circles[i], r_pix = r_pix)
+        positions.append((x_g, y_g))
+        rs.append(2*r)  #FWHMの推定に使う半径は少し大きめにとる
+
+    return positions, np.max(np.array(rs))
+
+#targetをindex 0として出力
+def datas_sort(datas, target):
+    temp = [datas[target]]
+    for i in range(len(datas)):
+        if i != target:
+            temp.append(datas[i])
+    return temp
+
+#メッセージを返す
+def return_message_in_order(message_top, data_sorted, message_bottom):
+    message = message_top +': target ' + str(data_sorted[0])+', reference(s)'
+    for i in range(len(data_sorted)-1):
+        message+= ' ' + str(data_sorted[i+1])
+    message += ' ' + message_bottom
+    return message
+
+#実際にphotometryを行う
+#aperture 周辺の背景情報を取り除くこともできる
+def get_aperture_photometry(positions, image, half_aperture, target, local_bkg):
+    aperture = CircularAperture(positions, r=half_aperture) #rは半径で指定 !!
+    aper_stats = ApertureStats(image, aperture, sigma_clip=None)
+    if local_bkg: #周辺をどうするか
+        annulus_aperture = CircularAnnulus(positions, r_in=half_aperture*1.5, r_out=half_aperture*2) #apertureの設定
+        sigclip = SigmaClip(sigma=3.0, maxiters=10)
+        bkg_stats = ApertureStats(image, annulus_aperture, sigma_clip=sigclip)#annulusの統計量 シグマクリップで
+        total_bkg = bkg_stats.median * aper_stats.sum_aper_area.value #bkgの総量を計算した
+    #測光
+    photometries = aper_stats.sum
+    if local_bkg:
+        photometries = photometries - total_bkg
+    return datas_sort(photometries, target)
