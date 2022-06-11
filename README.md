@@ -13,5 +13,5 @@ image-registration   0.2.5
 工事中
 
 # License
-Copyright (c) 2022 Shin Inoue
+Copyright (c) 2022 Shin Inoue  
 The source code is licensed under the BSD License, see LICENSE.
