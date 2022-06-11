@@ -2,12 +2,13 @@
 import numpy as np
 
 #--------3D plane fitting from
-"""
-referred the bellow code
-https://gist.github.com/RustingSword/e22a11e1d391f2ab1f2c
-"""
+
 #画像を3D平面でfitするコード
 def fitPlane3D(XYZ):
+    """
+    referred to the following
+    https://gist.github.com/RustingSword/e22a11e1d391f2ab1f2c
+    """
     (rows, cols) = XYZ.shape
     G = np.ones((rows, 3))
     G[:, 0] = XYZ[:, 0]  #X
