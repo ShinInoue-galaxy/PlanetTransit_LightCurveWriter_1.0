@@ -10,9 +10,9 @@ from SI_function import astro_image
 """============parameters=============="""
 if __name__ == "__main__":
 
-    flat_list = '../WASP-43/Flat/flat_30.list'  #darkファイルがある場所に置く 必ずdark.listの形式
-    dark_file = '../WASP-43/Dark/out/dark_30.FIT' #フルパス
-    output_file = 'flat_30.FIT'  #ファイル名だけ
+    flat_list = 'PATH/flat.list'  #darkファイルがある場所に置く 必ずdark.listの形式
+    dark_file = 'PATH/out/dark.FIT' #フルパス
+    output_file = 'PATH/flat.FIT'  #ファイル名だけ
     sigma_clip = True # σクリッピングをするかどうか
     n_sigma = 1. #何σでクリップするか
 """===================================="""
